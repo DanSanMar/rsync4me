@@ -395,12 +395,21 @@ seleccionar_carpeta_remota() {
         --layout=reverse \
         --border=rounded \
         --prompt=" Carpeta remota ❯ " \
-        --header="--- DESTINO EN $(destino_ssh) (edita la ruta si quieres) ---" \
+        --header="--- DESTINO EN $(destino_ssh) · escribe la ruta o elige con las flechas ---" \
         --color="border:#5fafd7,header:#af87ff,prompt:#5fb2ff,pointer:#afff00") || return 1
 
     query=$(sed -n '1p' <<<"$out")
     sel=$(sed -n '2p' <<<"$out")
-    printf '%s\n' "${sel:-${query:-$sugerida}}"
+
+    # Regla: si has escrito/edito algo distinto a la sugerencia, manda tu texto.
+    # Si no lo tocas, se usa el elemento resaltado de la lista.
+    if [ -n "$query" ] && [ "$query" != "$sugerida" ]; then
+        printf '%s\n' "$query"
+    elif [ -n "$sel" ]; then
+        printf '%s\n' "$sel"
+    else
+        printf '%s\n' "${query:-$sugerida}"
+    fi
 }
 
 # ==============================================================================
