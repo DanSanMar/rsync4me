@@ -21,7 +21,7 @@ ROJO='\e[31m'
 ROJO_BRILLANTE='\e[91m'
 BLANCO='\e[97m'
 NC='\033[0m'
-ver="v.1.0"
+ver="v.1.1-test"
 
 info()    { echo -e "${AZUL_BRILLANTE}[INFO]${RESET} $1"; }
 success() { echo -e "${VERDE_BRILLANTE}[OK]${RESET} $1"; }
@@ -92,17 +92,17 @@ configurar_servidor() {
     echo
     local resp
 
-    read -rp "➤ Servidor (host o IP)        [${RSYNC4ME_HOST}]: " resp
+    read -rp "➤ Servidor (host o IP)        [${RSYNC4ME_HOST}]: " resp || true
     if [ -n "$resp" ]; then RSYNC4ME_HOST="$resp"; fi
 
-    read -rp "➤ Puerto SSH                  [${RSYNC4ME_PORT}]: " resp
+    read -rp "➤ Puerto SSH                  [${RSYNC4ME_PORT}]: " resp || true
     if [ -n "$resp" ]; then RSYNC4ME_PORT="$resp"; fi
 
-    read -rp "➤ Usuario remoto              [${RSYNC4ME_USER}]: " resp
+    read -rp "➤ Usuario remoto              [${RSYNC4ME_USER}]: " resp || true
     if [ -n "$resp" ]; then RSYNC4ME_USER="$resp"; fi
 
     local base_sug="${RSYNC4ME_BASE:-$REAL_HOME}"
-    read -rp "➤ Carpeta base remota         [$base_sug]: " resp
+    read -rp "➤ Carpeta base remota         [$base_sug]: " resp || true
     RSYNC4ME_BASE="${resp:-$base_sug}"
 
     echo
@@ -124,7 +124,7 @@ asistente_config() {
     echo
     configurar_servidor
     echo
-    read -rp "Presione Enter para continuar..."
+    read -rp "Presione Enter para continuar..." || true
 }
 
 # ==============================================================================
@@ -198,7 +198,7 @@ asegurar_dependencias() {
             error "Instálalas manualmente y vuelve a ejecutar."
         fi
         for c in "${faltan[@]}"; do pkgs+=("$(paquete_de "$c")"); done
-        read -rp "¿Instalarlas ahora con $PKG_MANAGER? [s/N]: " resp
+        read -rp "¿Instalarlas ahora con $PKG_MANAGER? [s/N]: " resp || true
         [[ "$resp" =~ ^[sSyY]$ ]] || error "No se puede continuar sin: ${faltan[*]}"
         instalar_paquetes "${pkgs[@]}" || error "La instalación no se completó."
     fi
@@ -211,7 +211,7 @@ asegurar_dependencias() {
         info "Son opcionales: 'less' mejora el registro y 'micro' la edición de exclusiones."
         info "Sin ellas el script sigue funcionando (usará more/bat/cat y tu editor habitual)."
         if [ -n "$PKG_MANAGER" ]; then
-            read -rp "¿Instalarlas ahora con $PKG_MANAGER? [s/N]: " resp
+            read -rp "¿Instalarlas ahora con $PKG_MANAGER? [s/N]: " resp || true
             if [[ "$resp" =~ ^[sSyY]$ ]]; then
                 pkgs=()
                 for c in "${faltan_rec[@]}"; do pkgs+=("$(paquete_de "$c")"); done
@@ -299,6 +299,54 @@ salir() {
     echo -e "${VERDE_BRILLANTE}  ¡Hasta pronto!${RESET}"
     echo -e "${VERDE}  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     exit 0
+}
+
+# --- CONTROL DE CANCELACIÓN / SALIDA ---
+# Primera pulsación (Esc o Ctrl+C): cancela y vuelve al menú.
+# Segunda pulsación en menos de 3 s: pide confirmación para salir.
+INT_CONTADOR=0
+INT_MARCA=0
+INT_EN_TRAP=0
+INT_VENTANA=3
+
+confirmar_salida() {
+    local resp=""
+    # Mientras confirmamos, ignoramos señales para no reentrar en el trap
+    trap '' INT TERM HUP
+    echo
+    read -rp "¿Seguro que quieres salir de rsync4me? [s/N]: " resp || true
+    trap manejar_interrupcion INT
+    trap salir TERM HUP
+    if [[ "${resp:-}" =~ ^[sSyY]$ ]]; then
+        salir
+    else
+        INT_CONTADOR=0
+        info "Continuamos."
+    fi
+}
+
+manejar_interrupcion() {
+    local top="${1:-}"
+    [ "$INT_EN_TRAP" = "1" ] && return 0   # evita reentrada
+    INT_EN_TRAP=1
+
+    local ahora=${SECONDS}
+    if (( ahora - INT_MARCA <= INT_VENTANA )); then
+        INT_CONTADOR=$((INT_CONTADOR + 1))
+    else
+        INT_CONTADOR=1
+    fi
+    INT_MARCA=$ahora
+
+    if (( INT_CONTADOR >= 2 )); then
+        confirmar_salida
+    elif [ "$top" = "top" ]; then
+        echo
+        info "Pulsa Esc/Ctrl+C otra vez para salir, o elige una opción del menú."
+    fi
+
+    INT_EN_TRAP=0
+    return 0
 }
 
 # ==============================================================================
@@ -443,13 +491,13 @@ ejecutar_sync() {
 sincronizar_interactivo() {
     local local_dir remoto direccion sugerida
 
-    local_dir=$(seleccionar_carpeta_local) || { warn "Cancelado."; return 0; }
+    local_dir=$(seleccionar_carpeta_local) || { manejar_interrupcion; return 0; }
     [ -d "$local_dir" ] || { warn "No es una carpeta válida: $local_dir"; return 0; }
 
-    direccion=$(seleccionar_direccion) || { warn "Cancelado."; return 0; }
+    direccion=$(seleccionar_direccion) || { manejar_interrupcion; return 0; }
 
     sugerida="$RSYNC4ME_BASE/$(ruta_relativa "$local_dir")"
-    remoto=$(seleccionar_carpeta_remota "$sugerida") || { warn "Cancelado."; return 0; }
+    remoto=$(seleccionar_carpeta_remota "$sugerida") || { manejar_interrupcion; return 0; }
     remoto="${remoto:-$sugerida}"
 
     clear; mostrar_logo
@@ -462,7 +510,7 @@ sincronizar_interactivo() {
     ejecutar_sync "$local_dir" "$remoto" "$direccion" 1 || true
     echo -e "${CIAN}──────────────────────────────────────${RESET}"
     echo
-    read -rp "¿Ejecutar la sincronización real? [s/N]: " resp
+    read -rp "¿Ejecutar la sincronización real? [s/N]: " resp || true
     [[ "$resp" =~ ^[sSyY]$ ]] || { warn "Cancelado."; return 0; }
 
     echo
@@ -487,20 +535,20 @@ gestionar_carpetas() {
 2. 🗑️ | QUITAR   | Eliminar una carpeta de favoritos.
 3. ↩️ | VOLVER   | Volver al menú principal."
         local sel
-        sel=$(printf '%s\n' "$opciones" | fzf_generico "MIS CARPETAS" "Acción") || return 0
+        sel=$(printf '%s\n' "$opciones" | fzf_generico "MIS CARPETAS" "Acción") || { manejar_interrupcion; return 0; }
         case "${sel%%.*}" in
             0) clear; mostrar_logo; anadir_favorita ;;
             1) clear; mostrar_logo; listar_favoritas ;;
             2) clear; mostrar_logo; quitar_favorita ;;
             3) return 0 ;;
         esac
-        echo; read -rp "Presione Enter..."
+        echo; read -rp "Presione Enter..." || true
     done
 }
 
 anadir_favorita() {
     local sel
-    sel=$(explorar_local) || { warn "Cancelado."; return 0; }
+    sel=$(explorar_local) || { manejar_interrupcion; return 0; }
     mkdir -p "$CONFIG_DIR"; touch "$FAVS_FILE"
     if grep -qxF "$sel" "$FAVS_FILE"; then
         warn "Ya estaba registrada: $sel"
@@ -529,8 +577,8 @@ quitar_favorita() {
     sel=$(cat "$FAVS_FILE" | fzf --ansi --height=60% --layout=reverse \
         --border=rounded --prompt=" Quitar ❯ " \
         --header="--- QUITAR CARPETA FAVORITA ---" \
-        --color="border:#5fafd7,header:#af87ff,prompt:#5fb2ff,pointer:#afff00") || return 0
-    [ -n "$sel" ] || return 0
+        --color="border:#5fafd7,header:#af87ff,prompt:#5fb2ff,pointer:#afff00") || { manejar_interrupcion; return 0; }
+    [ -n "$sel" ] || { manejar_interrupcion; return 0; }
     grep -vxF "$sel" "$FAVS_FILE" > "$FAVS_FILE.tmp" || true
     mv "$FAVS_FILE.tmp" "$FAVS_FILE"
     success "Eliminada: $sel"
@@ -562,7 +610,7 @@ EOF
         info "Creado con patrones por defecto."
     fi
     echo
-    read -rp "¿Abrir para editar? [s/N]: " resp
+    read -rp "¿Abrir para editar? [s/N]: " resp || true
     if [[ "$resp" =~ ^[sSyY]$ ]]; then
         local ed
         if ed=$(editor_disponible); then
@@ -595,7 +643,8 @@ mostrar_ayuda() {
 fzf         | Flechas / Ctrl+J, Ctrl+K   | Moverse por las opciones
 fzf         | Escribir                   | Filtrar la lista
 fzf         | Enter                      | Seleccionar
-fzf         | Esc / Ctrl+C               | Cancelar
+fzf         | Esc / Ctrl+C               | Cancelar y volver al menú
+panel       | Esc/Ctrl+C (2ª vez, 3s)    | Confirmar la salida
 fzf         | Ctrl+/                     | Alternar la vista previa
 rsync4me    | rsync4me                   | Abrir el panel interactivo
 rsync4me    | rsync4me --setup           | Forzar el asistente de configuración
@@ -648,6 +697,14 @@ EOF
 # ==============================================================================
 
 menu() {
+    # El panel interactivo necesita terminal real; si no la hay, salimos limpio
+    # en lugar de dejar a fzf colgado o entrar en un bucle.
+    if ! { : < /dev/tty; } 2>/dev/null; then
+        warn "El panel interactivo necesita una terminal (TTY)."
+        info "Para uso no interactivo: rsync4me -d ORIGEN [DESTINO] [--push|--pull|--both]"
+        exit 1
+    fi
+
     asegurar_dependencias
 
     if ! config_completa; then
@@ -668,14 +725,14 @@ menu() {
 6. ❌ | SALIR         | Salir del administrador rsync4me."
 
         local seleccion
-        seleccion=$(printf '%s\n' "$opciones" | fzf_menu_principal) || salir
-        [ -n "$seleccion" ] || salir
+        seleccion=$(printf '%s\n' "$opciones" | fzf_menu_principal) || { manejar_interrupcion top; continue; }
+        [ -n "$seleccion" ] || { manejar_interrupcion top; continue; }
 
         case "${seleccion%%.*}" in
-            0) clear; mostrar_logo; sincronizar_interactivo; read -rp "Presione Enter...";;
+            0) clear; mostrar_logo; sincronizar_interactivo; read -rp "Presione Enter..." || true;;
             1) gestionar_carpetas ;;
-            2) clear; mostrar_logo; configurar_servidor; read -rp "Presione Enter...";;
-            3) clear; mostrar_logo; gestionar_exclusiones; read -rp "Presione Enter...";;
+            2) clear; mostrar_logo; configurar_servidor; read -rp "Presione Enter..." || true;;
+            3) clear; mostrar_logo; gestionar_exclusiones; read -rp "Presione Enter..." || true;;
             4) clear; mostrar_logo; mostrar_log;;
             5) clear; mostrar_logo; mostrar_ayuda;;
             6) salir ;;
@@ -689,7 +746,10 @@ menu() {
 
 detectar_distro
 cargar_config
-trap salir SIGINT SIGTERM
+# Ctrl+C (INT): lógica de cancelar/confirmar salida.
+# TERM/HUP: cierre real (timeout, systemd, cerrar terminal) -> salida limpia.
+trap manejar_interrupcion INT
+trap salir TERM HUP
 
 SETUP_FORZADO=0
 CLI_DIRS=0
