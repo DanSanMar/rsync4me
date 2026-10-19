@@ -310,19 +310,18 @@ INT_EN_TRAP=0
 INT_VENTANA=3
 
 confirmar_salida() {
-    local resp=""
-    # Mientras confirmamos, ignoramos señales para no reentrar en el trap
-    trap '' INT TERM HUP
-    echo
-    read -rp "¿Seguro que quieres salir de rsync4me? [s/N]: " resp || true
-    trap manejar_interrupcion INT
-    trap salir TERM HUP
-    if [[ "${resp:-}" =~ ^[sSyY]$ ]]; then
-        salir
-    else
-        INT_CONTADOR=0
-        info "Continuamos."
-    fi
+    local opciones="ELECCIÓN | OPCIÓN  | DESCRIPCIÓN
+0. ✅ | SALIR   | Cerrar el panel rsync4me.
+1. ↩️ | SEGUIR  | Volver al menú principal."
+
+    local sel
+    # Esc / Ctrl+C en el diálogo => seguir (sel="1"), no salir.
+    sel=$(printf '%s\n' "$opciones" | fzf_generico "¿SALIR DE RSYNC4ME?" "Confirmar") || sel="1"
+
+    case "${sel%%.*}" in
+        0) salir ;;
+        *) INT_CONTADOR=0; info "Continuamos." ;;
+    esac
 }
 
 manejar_interrupcion() {
@@ -644,7 +643,7 @@ fzf         | Flechas / Ctrl+J, Ctrl+K   | Moverse por las opciones
 fzf         | Escribir                   | Filtrar la lista
 fzf         | Enter                      | Seleccionar
 fzf         | Esc / Ctrl+C               | Cancelar y volver al menú
-panel       | Esc/Ctrl+C (2ª vez, 3s)    | Confirmar la salida
+panel       | Esc/Ctrl+C (2ª vez, 3s)    | Menú de salida (Enter sale)
 fzf         | Ctrl+/                     | Alternar la vista previa
 rsync4me    | rsync4me                   | Abrir el panel interactivo
 rsync4me    | rsync4me --setup           | Forzar el asistente de configuración
