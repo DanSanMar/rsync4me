@@ -197,13 +197,13 @@ fzf_menu_principal() {
         if [[ "$line" =~ "SINCRONIZAR" ]]; then
             echo -e "\033[1;36m=== 📂 SINCRONIZAR CARPETA ===\033[0m\n\nElige una carpeta local y un destino remoto:\n ➔ Selección desde tus carpetas favoritas o explorando el disco\n ➔ Dirección: ambos sentidos, solo envío o solo traída\n ➔ Simulación previa (dry-run) antes de copiar\n ➔ Solo AÑADE: nunca borra ni sobrescribe"
         elif [[ "$line" =~ "MIS CARPETAS" ]]; then
-            echo -e "\033[1;36m=== 📋 MIS CARPETAS ===\033[0m\n\nGestiona tus carpetas favoritas:\n ➔ Registra rutas locales frecuentes\n ➔ Lístalas y elimínalas cuando quieras\n ➔ Se guardan en $FAVS_FILE"
+            echo -e "\033[1;36m=== 📋 MIS CARPETAS ===\033[0m\n\nGestiona tus carpetas favoritas:\n ➔ Registra rutas locales frecuentes\n ➔ Lístalas y elimínalas cuando quieras\n ➔ Se guardan en ~/.config/rsync4me/carpetas.txt"
         elif [[ "$line" =~ "SERVIDOR" ]]; then
             echo -e "\033[1;36m=== ⚙️ SERVIDOR SSH ===\033[0m\n\nAjusta los datos de conexión:\n ➔ Host o IP, puerto y usuario\n ➔ Carpeta base remota (raíz de los destinos)\n ➔ Prueba automática de la conexión\n ➔ Se guarda en el archivo de configuración"
         elif [[ "$line" =~ "EXCLUSIONES" ]]; then
             echo -e "\033[1;36m=== 📦 EXCLUSIONES ===\033[0m\n\nEdita los patrones que rsync ignorará:\n ➔ Uno por línea (ej: .git/, node_modules/, *.tmp)\n ➔ Se aplican con --exclude-from"
         elif [[ "$line" =~ "REGISTRO" ]]; then
-            echo -e "\033[1;36m=== 🧾 REGISTRO ===\033[0m\n\nConsulta el historial de sincronizaciones:\n ➔ Última ejecución y transferencias realizadas\n ➔ Se guarda en $LOG_FILE"
+            echo -e "\033[1;36m=== 🧾 REGISTRO ===\033[0m\n\nConsulta el historial de sincronizaciones:\n ➔ Última ejecución y transferencias realizadas\n ➔ Se guarda en ~/.config/rsync4me/rsync4me.log"
         elif [[ "$line" =~ "AYUDA" ]]; then
             echo -e "\033[1;36m=== 💡 AYUDA Y ATAJOS ===\033[0m\n\nMuestra patrones útiles del panel:\n ➔ Atajos de fzf dentro de los menús\n ➔ Ejemplos de uso por línea de comandos"
         elif [[ "$line" =~ "SALIR" ]]; then
