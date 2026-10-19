@@ -302,8 +302,9 @@ salir() {
 }
 
 # --- CONTROL DE CANCELACIÓN / SALIDA ---
-# Primera pulsación (Esc o Ctrl+C): cancela y vuelve al menú.
-# Segunda pulsación en menos de 3 s: pide confirmación para salir.
+# En submenús / operaciones: la 1ª pulsación (Esc o Ctrl+C) cancela y vuelve
+# al menú; la 2ª en menos de 3 s abre el diálogo de salida.
+# En el menú principal: una sola pulsación abre ya el diálogo de salida.
 INT_CONTADOR=0
 INT_MARCA=0
 INT_EN_TRAP=0
@@ -325,7 +326,6 @@ confirmar_salida() {
 }
 
 manejar_interrupcion() {
-    local top="${1:-}"
     [ "$INT_EN_TRAP" = "1" ] && return 0   # evita reentrada
     INT_EN_TRAP=1
 
@@ -337,11 +337,10 @@ manejar_interrupcion() {
     fi
     INT_MARCA=$ahora
 
+    # 1ª pulsación: cancela la operación en curso y vuelve al menú.
+    # 2ª pulsación seguida (o 1ª en el menú principal): diálogo de salida.
     if (( INT_CONTADOR >= 2 )); then
         confirmar_salida
-    elif [ "$top" = "top" ]; then
-        echo
-        info "Pulsa Esc/Ctrl+C otra vez para salir, o elige una opción del menú."
     fi
 
     INT_EN_TRAP=0
@@ -643,7 +642,8 @@ fzf         | Flechas / Ctrl+J, Ctrl+K   | Moverse por las opciones
 fzf         | Escribir                   | Filtrar la lista
 fzf         | Enter                      | Seleccionar
 fzf         | Esc / Ctrl+C               | Cancelar y volver al menú
-panel       | Esc/Ctrl+C (2ª vez, 3s)    | Menú de salida (Enter sale)
+panel       | Esc/Ctrl+C en el menú      | Abre el diálogo de salida
+panel       | Esc/Ctrl+C en un submenú   | 1ª cancela · 2ª abre salir
 fzf         | Ctrl+/                     | Alternar la vista previa
 rsync4me    | rsync4me                   | Abrir el panel interactivo
 rsync4me    | rsync4me --setup           | Forzar el asistente de configuración
@@ -724,8 +724,10 @@ menu() {
 6. ❌ | SALIR         | Salir del administrador rsync4me."
 
         local seleccion
-        seleccion=$(printf '%s\n' "$opciones" | fzf_menu_principal) || { manejar_interrupcion top; continue; }
-        [ -n "$seleccion" ] || { manejar_interrupcion top; continue; }
+        # En el menú principal no hay nada que cancelar: un solo Esc/Ctrl+C
+        # abre ya el diálogo de salida (sin el parpadeo de la 1ª pulsación).
+        seleccion=$(printf '%s\n' "$opciones" | fzf_menu_principal) || { confirmar_salida; continue; }
+        [ -n "$seleccion" ] || { confirmar_salida; continue; }
 
         case "${seleccion%%.*}" in
             0) clear; mostrar_logo; sincronizar_interactivo; read -rp "Presione Enter..." || true;;
