@@ -5,6 +5,7 @@
 
 ---
 
+[![Version](https://img.shields.io/badge/version-v.1.1--test-orange?style=for-the-badge&logo=git&logoColor=white)](https://github.com/DanSanMar/rsync4me)
 [![Shell Script](https://img.shields.io/badge/Shell-Bash-4EAA25?style=for-the-badge&logo=gnu-bash&logoColor=white)](https://www.gnu.org/software/bash/)
 [![Linux](https://img.shields.io/badge/Linux-Arch%20%7C%20Debian%20%7C%20Fedora-blue?style=for-the-badge&logo=linux&logoColor=white)](https://www.kernel.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
