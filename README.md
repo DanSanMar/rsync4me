@@ -86,6 +86,20 @@ Menú principal:
 | 📦 EXCLUSIONES | Edita los patrones `--exclude` |
 | 🧾 REGISTRO | Consulta el historial |
 | 💡 AYUDA | Atajos y comandos |
+| ❌ SALIR | Cierra el panel |
+
+### Navegación del panel
+
+| Tecla | Acción |
+|---|---|
+| Escribir o flechas | Filtrar y moverse por la lista |
+| Enter | Seleccionar la opción resaltada |
+| Ctrl+/ | Mostrar u ocultar la vista previa |
+| Esc / Ctrl+C | **En el menú principal:** abre el diálogo de salida. **En submenús o durante una sincronización:** cancela y vuelve al menú |
+| Esc / Ctrl+C (2.ª vez, en <3 s) | Abre el diálogo de salida desde un submenú o una operación en curso |
+
+Al abrirse el diálogo de salida, la primera opción es **SALIR**, así que basta con pulsar
+**Enter** para cerrar el panel; **Esc** o elegir **SEGUIR** vuelve al menú.
 
 ### Sin menú (automatizable)
 
