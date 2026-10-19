@@ -157,34 +157,68 @@ detectar_distro() {
 # Traduce el nombre del comando a su paquete según la distro
 paquete_de() {
     case "$1" in
-        ssh) [ "$PKG_MANAGER" = "pacman" ] && echo "openssh" || echo "openssh-client" ;;
-        *)   echo "$1" ;;
+        ssh)
+            case "$PKG_MANAGER" in
+                pacman) echo "openssh" ;;
+                apt)    echo "openssh-client" ;;
+                dnf)    echo "openssh-clients" ;;
+                *)      echo "openssh" ;;
+            esac
+            ;;
+        *) echo "$1" ;;
     esac
 }
 
-asegurar_dependencias() {
-    local faltan=() c
-    for c in rsync ssh fzf; do
-        command -v "$c" >/dev/null 2>&1 || faltan+=("$c")
-    done
-    if [ ${#faltan[@]} -eq 0 ]; then return 0; fi
-
-    warn "Faltan dependencias: ${faltan[*]}"
-    if [ -z "$PKG_MANAGER" ]; then
-        error "Instálalas manualmente y vuelve a ejecutar."
-    fi
-
-    local pkgs=()
-    for c in "${faltan[@]}"; do pkgs+=("$(paquete_de "$c")"); done
-
-    read -rp "¿Instalarlas ahora con $PKG_MANAGER? [s/N]: " resp
-    [[ "$resp" =~ ^[sSyY]$ ]] || error "No se puede continuar sin: ${faltan[*]}"
-
+instalar_paquetes() {
+    local -a pkgs=("$@")
+    [ ${#pkgs[@]} -gt 0 ] || return 0
     case "$PKG_MANAGER" in
         pacman) sudo pacman -S --needed "${pkgs[@]}" ;;
         apt)    sudo apt update && sudo apt install -y "${pkgs[@]}" ;;
         dnf)    sudo dnf install -y "${pkgs[@]}" ;;
+        *)      warn "Gestor de paquetes no soportado; instala a mano: ${pkgs[*]}"; return 1 ;;
     esac
+}
+
+# Dependencias OBLIGATORIAS: sin ellas el script no puede funcionar.
+# Dependencias RECOMENDADAS: si faltan se ofrecen, pero nunca bloquean (hay alternativas).
+DEPS_OBLIGATORIAS=(rsync ssh fzf)
+DEPS_RECOMENDADAS=(less micro)
+
+asegurar_dependencias() {
+    local c
+    local -a faltan=() faltan_rec=() pkgs=()
+
+    for c in "${DEPS_OBLIGATORIAS[@]}"; do
+        command -v "$c" >/dev/null 2>&1 || faltan+=("$c")
+    done
+    if [ ${#faltan[@]} -gt 0 ]; then
+        warn "Faltan dependencias OBLIGATORIAS: ${faltan[*]}"
+        if [ -z "$PKG_MANAGER" ]; then
+            error "Instálalas manualmente y vuelve a ejecutar."
+        fi
+        for c in "${faltan[@]}"; do pkgs+=("$(paquete_de "$c")"); done
+        read -rp "¿Instalarlas ahora con $PKG_MANAGER? [s/N]: " resp
+        [[ "$resp" =~ ^[sSyY]$ ]] || error "No se puede continuar sin: ${faltan[*]}"
+        instalar_paquetes "${pkgs[@]}" || error "La instalación no se completó."
+    fi
+
+    for c in "${DEPS_RECOMENDADAS[@]}"; do
+        command -v "$c" >/dev/null 2>&1 || faltan_rec+=("$c")
+    done
+    if [ ${#faltan_rec[@]} -gt 0 ]; then
+        warn "Faltan herramientas RECOMENDADAS: ${faltan_rec[*]}"
+        info "Son opcionales: 'less' mejora el registro y 'micro' la edición de exclusiones."
+        info "Sin ellas el script sigue funcionando (usará more/bat/cat y tu editor habitual)."
+        if [ -n "$PKG_MANAGER" ]; then
+            read -rp "¿Instalarlas ahora con $PKG_MANAGER? [s/N]: " resp
+            if [[ "$resp" =~ ^[sSyY]$ ]]; then
+                pkgs=()
+                for c in "${faltan_rec[@]}"; do pkgs+=("$(paquete_de "$c")"); done
+                instalar_paquetes "${pkgs[@]}" || true
+            fi
+        fi
+    fi
 }
 
 # ==============================================================================
@@ -493,6 +527,18 @@ quitar_favorita() {
     success "Eliminada: $sel"
 }
 
+editor_disponible() {
+    local e
+    for e in "${EDITOR:-}" micro nano vim vi; do
+        [ -n "$e" ] || continue
+        if command -v "$e" >/dev/null 2>&1; then
+            printf '%s\n' "$e"
+            return 0
+        fi
+    done
+    return 1
+}
+
 gestionar_exclusiones() {
     echo -e "${CIAN}Patrones de exclusión:${RESET} $EXCL_FILE"
     if [ ! -f "$EXCL_FILE" ]; then
@@ -507,10 +553,15 @@ EOF
         info "Creado con patrones por defecto."
     fi
     echo
-    read -rp "¿Abrir con micro para editar? [s/N]: " resp
+    read -rp "¿Abrir para editar? [s/N]: " resp
     if [[ "$resp" =~ ^[sSyY]$ ]]; then
-        micro "$EXCL_FILE"
-        success "Exclusiones actualizadas."
+        local ed
+        if ed=$(editor_disponible); then
+            "$ed" "$EXCL_FILE"
+            success "Exclusiones actualizadas."
+        else
+            warn "No se encontró ningún editor (micro/nano/vi). Edita a mano: $EXCL_FILE"
+        fi
     fi
 }
 
@@ -519,7 +570,15 @@ mostrar_log() {
         warn "Todavía no hay registro de sincronizaciones."
         return 0
     fi
-    less -R "$LOG_FILE"
+    if command -v less >/dev/null 2>&1; then
+        less -R "$LOG_FILE"
+    elif command -v more >/dev/null 2>&1; then
+        more "$LOG_FILE"
+    elif command -v bat >/dev/null 2>&1; then
+        bat --style=plain --paging=never "$LOG_FILE"
+    else
+        cat "$LOG_FILE"
+    fi
 }
 
 mostrar_ayuda() {

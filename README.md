@@ -28,22 +28,31 @@
 
 ## 🛠️ Requisitos
 
+**Obligatorios** (sin ellos no funciona):
+
 | Herramienta | Para qué |
 |---|---|
 | `bash` | Ejecutar el script |
 | `rsync` | Motor de sincronización |
 | `ssh` | Conexión con el servidor (`openssh`) |
 | `fzf` | Menús interactivos |
-| `micro` | Editar exclusiones (opcional) |
 
-El script los detecta y te propone instalarlos si faltan.
+**Recomendados** (opcionales, mejoran la experiencia):
+
+| Herramienta | Para qué | Alternativa si falta |
+|---|---|---|
+| `less` | Leer el registro | `more` / `bat` / `cat` |
+| `micro` | Editar exclusiones | `$EDITOR` / `nano` / `vi` |
+
+El script detecta lo que falta y te propone instalarlo (`pacman`, `apt` o `dnf`). Si rechazas
+las herramientas recomendadas, sigue funcionando con las alternativas.
 
 ---
 
 ## 🚀 Instalación
 
 ```bash
-git clone <URL-del-repo> ~/Proyectos/rsync4me
+git clone https://github.com/DanSanMar/rsync4me.git ~/Proyectos/rsync4me
 chmod +x ~/Proyectos/rsync4me/rsync4me.sh
 ```
 
